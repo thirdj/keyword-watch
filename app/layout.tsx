@@ -1,4 +1,5 @@
-// app/layout.tsx
+import './globals.css';
+
 export const metadata = {
   title: '키워드 워치',
   description: '관심 키워드를 감시하고 새 결과가 있으면 알려주는 도구',

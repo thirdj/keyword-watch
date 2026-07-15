@@ -40,11 +40,22 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
+  // 각 키워드의 가장 최근 check_logs 한 건을 LATERAL JOIN으로 같이 가져와서
+  // 대시보드 상태점(새 결과 있었는지)을 정확히 표시할 수 있게 함
   const keywords = await sql`
-    SELECT id, keyword, search_engine, interval_min, last_checked_at, is_active
-    FROM keywords
-    WHERE is_active = true
-    ORDER BY created_at DESC
+    SELECT
+      k.id, k.keyword, k.search_engine, k.interval_min, k.last_checked_at, k.is_active,
+      latest.is_new AS last_check_is_new
+    FROM keywords k
+    LEFT JOIN LATERAL (
+      SELECT is_new
+      FROM check_logs
+      WHERE check_logs.keyword_id = k.id
+      ORDER BY checked_at DESC
+      LIMIT 1
+    ) latest ON true
+    WHERE k.is_active = true
+    ORDER BY k.created_at DESC
   `;
   return NextResponse.json(keywords);
 }
