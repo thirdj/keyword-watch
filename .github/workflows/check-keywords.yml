@@ -1,0 +1,15 @@
+name: Check Keywords
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # 30분마다 (Vercel Hobby 플랜은 하루 1회만 허용해서 대신 사용)
+  workflow_dispatch:        # Actions 탭에서 수동 실행 버튼
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call check-keywords endpoint
+        run: |
+          curl -f -X GET "${{ secrets.APP_URL }}/api/cron/check-keywords" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
