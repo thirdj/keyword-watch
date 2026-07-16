@@ -18,14 +18,26 @@ const MAX_KEYWORDS = 10;
 export default function DashboardPage() {
   const [keywords, setKeywords] = useState<Keyword[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
   const [editTarget, setEditTarget] = useState<KeywordFormValue | undefined>(undefined);
 
   async function fetchKeywords() {
     setLoading(true);
-    const res = await fetch('/api/keywords');
-    const data = await res.json();
-    setKeywords(data);
+    setFetchError('');
+    try {
+      const res = await fetch('/api/keywords');
+      const data = await res.json();
+      if (!res.ok) {
+        setFetchError(data.error ?? '키워드를 불러오지 못했어요.');
+        setKeywords([]);
+      } else {
+        setKeywords(data);
+      }
+    } catch (err) {
+      setFetchError('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+      setKeywords([]);
+    }
     setLoading(false);
   }
 
@@ -78,6 +90,8 @@ export default function DashboardPage() {
 
       {loading ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>불러오는 중...</p>
+      ) : fetchError ? (
+        <p style={{ color: 'var(--danger)', fontSize: 14 }}>{fetchError}</p>
       ) : keywords.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>등록된 키워드가 없어요. 추가해보세요.</p>
       ) : (
@@ -131,40 +145,61 @@ function KeywordRow({
       : `변화 없음 · ${formatRelativeTime(keyword.last_checked_at!)}`;
 
   const dotClass = !hasChecked ? 'idle' : isNew ? 'new' : 'idle';
+  const borderStyle = isLast ? 'none' : '1px solid var(--border)';
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '14px 16px',
-        borderBottom: isLast ? 'none' : '1px solid var(--border)',
-      }}
-    >
-      <span className={`status-dot ${dotClass}`} aria-hidden="true" />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{keyword.keyword}</p>
-        <p
-          style={{
-            fontSize: 12,
-            color: isNew ? 'var(--success)' : 'var(--text-secondary)',
-            margin: '2px 0 0',
-          }}
-        >
-          {statusLabel}
-        </p>
+    <div style={{ borderBottom: borderStyle }}>
+      {/* 데스크톱: 한 줄 레이아웃 */}
+      <div className="kw-row-desktop" style={{ alignItems: 'center', gap: 12, padding: '14px 16px' }}>
+        <span className={`status-dot ${dotClass}`} aria-hidden="true" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{keyword.keyword}</p>
+          <p
+            style={{
+              fontSize: 12,
+              color: isNew ? 'var(--success)' : 'var(--text-secondary)',
+              margin: '2px 0 0',
+            }}
+          >
+            {statusLabel}
+          </p>
+        </div>
+        <span className="badge">{keyword.search_engine}</span>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 52, textAlign: 'right' }}>
+          {formatInterval(keyword.interval_min)}
+        </span>
+        <button onClick={onEdit} style={{ fontSize: 12.5, padding: '6px 10px' }}>
+          수정
+        </button>
+        <button className="danger-ghost" onClick={onDelete}>
+          삭제
+        </button>
       </div>
-      <span className="badge">{keyword.search_engine}</span>
-      <span style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 52, textAlign: 'right' }}>
-        {formatInterval(keyword.interval_min)}
-      </span>
-      <button onClick={onEdit} style={{ fontSize: 12.5, padding: '6px 10px' }}>
-        수정
-      </button>
-      <button className="danger-ghost" onClick={onDelete}>
-        삭제
-      </button>
+
+      {/* 모바일: 2단 카드 레이아웃 — 제목/상태 위, 메타정보+버튼 아래 */}
+      <div className="kw-row-mobile">
+        <div className="kw-top">
+          <span className={`status-dot ${dotClass}`} aria-hidden="true" />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p className="kw-title">{keyword.keyword}</p>
+            <p className={`kw-status ${isNew ? 'new' : ''}`}>{statusLabel}</p>
+          </div>
+        </div>
+        <div className="kw-footer">
+          <div className="kw-footer-meta">
+            <span className="badge">{keyword.search_engine}</span>
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              {formatInterval(keyword.interval_min)}
+            </span>
+          </div>
+          <div className="kw-footer-actions">
+            <button onClick={onEdit}>수정</button>
+            <button className="danger-ghost" onClick={onDelete}>
+              삭제
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

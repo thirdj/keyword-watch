@@ -8,6 +8,7 @@ export async function POST(req: Request) {
   const body = await req.json();
   const { keyword, searchEngine, intervalMin } = body;
 
+  // 입력 검증
   if (!keyword?.trim()) {
     return NextResponse.json({ error: '키워드를 입력해주세요.' }, { status: 400 });
   }
@@ -18,6 +19,7 @@ export async function POST(req: Request) {
     );
   }
 
+  // 개수 제한 체크
   const [{ count }] = await sql`
     SELECT COUNT(*)::int as count FROM keywords WHERE is_active = true
   `;
@@ -39,6 +41,8 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    // 각 키워드의 가장 최근 check_logs 한 건을 LATERAL JOIN으로 같이 가져와서
+    // 대시보드 상태점(새 결과 있었는지)을 정확히 표시할 수 있게 함
     const keywords = await sql`
       SELECT
         k.id, k.keyword, k.search_engine, k.interval_min, k.last_checked_at, k.is_active,
