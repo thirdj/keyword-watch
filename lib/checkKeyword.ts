@@ -6,6 +6,7 @@ import { SearchResultItem } from '@/lib/search/types';
 interface CheckResult {
   checkLogId: number;
   newItems: SearchResultItem[];
+  resultCount: number;
 }
 
 export async function checkKeyword(
@@ -36,5 +37,5 @@ export async function checkKeyword(
 
   await sql`UPDATE keywords SET last_checked_at = now() WHERE id = ${keywordId}`;
 
-  return { checkLogId: checkLog.id, newItems };
+  return { checkLogId: checkLog.id, newItems, resultCount: results.length };
 }

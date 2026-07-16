@@ -1,10 +1,12 @@
 import { tavilyAdapter } from './tavily';
 import { naverAdapter } from './naver';
+import { daumAdapter } from './daum';
 import { SearchAdapter } from './types';
 
 const adapters: Record<string, SearchAdapter> = {
   tavily: tavilyAdapter,
   naver: naverAdapter,
+  daum: daumAdapter,
 };
 
 export function getSearchAdapter(engine: string): SearchAdapter {

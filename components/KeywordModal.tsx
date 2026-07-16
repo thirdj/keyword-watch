@@ -43,19 +43,24 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
     const url = mode === 'create' ? '/api/keywords' : `/api/keywords/${initialValue?.id}`;
     const method = mode === 'create' ? 'POST' : 'PATCH';
 
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword, searchEngine, intervalMin }),
-    });
-    setSaving(false);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword, searchEngine, intervalMin }),
+      });
 
-    if (!res.ok) {
-      const data = await res.json();
-      setError(data.error ?? '저장에 실패했어요.');
-      return;
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? '저장에 실패했어요.');
+        return;
+      }
+      onSaved();
+    } catch {
+      setError('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setSaving(false);
     }
-    onSaved();
   }
 
   const usageBoxClass = usage.exceedsLimit ? 'usage-box danger' : usage.percentOfLimit > 70 ? 'usage-box warning' : 'usage-box';
@@ -72,20 +77,22 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           placeholder="아이폰 18"
+          disabled={saving}
           style={{ marginBottom: 12 }}
         />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label className="field-label">검색엔진</label>
-            <select value={searchEngine} onChange={(e) => setSearchEngine(e.target.value)}>
+            <select value={searchEngine} onChange={(e) => setSearchEngine(e.target.value)} disabled={saving}>
               <option value="tavily">Tavily</option>
               <option value="naver">Naver</option>
+              <option value="daum">Daum</option>
             </select>
           </div>
           <div>
             <label className="field-label">확인 주기</label>
-            <select value={intervalMin} onChange={(e) => setIntervalMin(Number(e.target.value))}>
+            <select value={intervalMin} onChange={(e) => setIntervalMin(Number(e.target.value))} disabled={saving}>
               {INTERVAL_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
@@ -103,7 +110,9 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
         {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose}>취소</button>
+          <button onClick={onClose} disabled={saving}>
+            취소
+          </button>
           <button className="primary" onClick={handleSave} disabled={saving || !keyword.trim()}>
             {saving ? '저장 중...' : mode === 'create' ? '키워드 저장' : '수정 저장'}
           </button>

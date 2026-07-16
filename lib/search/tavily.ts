@@ -1,4 +1,5 @@
 import { SearchAdapter, SearchResultItem } from './types';
+import { RateLimitError } from './errors';
 
 const RELEVANCE_THRESHOLD = 0.5; // news 토픽은 general보다 점수 분포가 낮아서 기준 완화
 
@@ -19,6 +20,9 @@ export const tavilyAdapter: SearchAdapter = {
       }),
     });
 
+    if (res.status === 429) {
+      throw new RateLimitError('tavily', await res.text());
+    }
     if (!res.ok) {
       throw new Error(`Tavily 검색 실패: ${res.status} ${await res.text()}`);
     }

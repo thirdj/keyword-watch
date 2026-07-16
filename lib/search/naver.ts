@@ -1,4 +1,5 @@
 import { SearchAdapter, SearchResultItem } from './types';
+import { RateLimitError } from './errors';
 
 export const naverAdapter: SearchAdapter = {
   async search(keyword: string): Promise<SearchResultItem[]> {
@@ -10,6 +11,9 @@ export const naverAdapter: SearchAdapter = {
         'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET!,
       },
     });
+    if (res.status === 429) {
+      throw new RateLimitError('naver', await res.text());
+    }
     if (!res.ok) throw new Error(`Naver 검색 실패: ${res.status}`);
 
     const data = await res.json();

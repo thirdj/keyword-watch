@@ -19,6 +19,20 @@ export default function DashboardPage() {
   const [keywords, setKeywords] = useState<Keyword[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [tavilyUsage, setTavilyUsage] = useState<{ remaining: number; limit: number } | null>(null);
+
+  async function fetchTavilyUsage() {
+    try {
+      const res = await fetch('/api/usage');
+      if (!res.ok) return; // 실패해도 화면엔 그냥 안 보여주면 됨, 핵심 기능 아님
+      const data = await res.json();
+      setTavilyUsage(data);
+    } catch {
+      // 조용히 무시 — 이 정보 없어도 서비스 동작엔 지장 없음
+    }
+  }
   const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
   const [editTarget, setEditTarget] = useState<KeywordFormValue | undefined>(undefined);
 
@@ -43,12 +57,26 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchKeywords();
+    fetchTavilyUsage();
   }, []);
 
   async function handleDelete(id: number) {
     if (!confirm('이 키워드를 삭제할까요?')) return;
-    await fetch(`/api/keywords/${id}`, { method: 'DELETE' });
-    fetchKeywords();
+    setDeleteError('');
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/keywords/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDeleteError(data.error ?? '삭제에 실패했어요. 잠시 후 다시 시도해주세요.');
+        return;
+      }
+      await fetchKeywords();
+    } catch {
+      setDeleteError('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   function openCreateModal() {
@@ -81,12 +109,19 @@ export default function DashboardPage() {
           <h1 style={{ fontSize: 19, fontWeight: 600, margin: 0 }}>내 키워드</h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '3px 0 0' }}>
             {keywords.length}/{MAX_KEYWORDS}개 등록됨
+            {tavilyUsage && (
+              <> · Tavily 잔여 {tavilyUsage.remaining.toLocaleString()}/{tavilyUsage.limit.toLocaleString()}</>
+            )}
           </p>
         </div>
         <button className="primary" onClick={openCreateModal} disabled={keywords.length >= MAX_KEYWORDS}>
           키워드 추가
         </button>
       </div>
+
+      {deleteError && (
+        <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{deleteError}</p>
+      )}
 
       {loading ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>불러오는 중...</p>
@@ -101,6 +136,7 @@ export default function DashboardPage() {
               key={kw.id}
               keyword={kw}
               isLast={i === keywords.length - 1}
+              isDeleting={deletingId === kw.id}
               onEdit={() => openEditModal(kw)}
               onDelete={() => handleDelete(kw.id)}
             />
@@ -127,11 +163,13 @@ export default function DashboardPage() {
 function KeywordRow({
   keyword,
   isLast,
+  isDeleting,
   onEdit,
   onDelete,
 }: {
   keyword: Keyword;
   isLast: boolean;
+  isDeleting: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -146,9 +184,10 @@ function KeywordRow({
 
   const dotClass = !hasChecked ? 'idle' : isNew ? 'new' : 'idle';
   const borderStyle = isLast ? 'none' : '1px solid var(--border)';
+  const rowOpacity = isDeleting ? 0.5 : 1;
 
   return (
-    <div style={{ borderBottom: borderStyle }}>
+    <div style={{ borderBottom: borderStyle, opacity: rowOpacity, transition: 'opacity 0.15s ease' }}>
       {/* 데스크톱: 한 줄 레이아웃 */}
       <div className="kw-row-desktop" style={{ alignItems: 'center', gap: 12, padding: '14px 16px' }}>
         <span className={`status-dot ${dotClass}`} aria-hidden="true" />
@@ -168,11 +207,11 @@ function KeywordRow({
         <span style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 52, textAlign: 'right' }}>
           {formatInterval(keyword.interval_min)}
         </span>
-        <button onClick={onEdit} style={{ fontSize: 12.5, padding: '6px 10px' }}>
+        <button onClick={onEdit} disabled={isDeleting} style={{ fontSize: 12.5, padding: '6px 10px' }}>
           수정
         </button>
-        <button className="danger-ghost" onClick={onDelete}>
-          삭제
+        <button className="danger-ghost" onClick={onDelete} disabled={isDeleting}>
+          {isDeleting ? '삭제 중...' : '삭제'}
         </button>
       </div>
 
@@ -193,9 +232,11 @@ function KeywordRow({
             </span>
           </div>
           <div className="kw-footer-actions">
-            <button onClick={onEdit}>수정</button>
-            <button className="danger-ghost" onClick={onDelete}>
-              삭제
+            <button onClick={onEdit} disabled={isDeleting}>
+              수정
+            </button>
+            <button className="danger-ghost" onClick={onDelete} disabled={isDeleting}>
+              {isDeleting ? '삭제 중...' : '삭제'}
             </button>
           </div>
         </div>

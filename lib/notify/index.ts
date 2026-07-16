@@ -43,9 +43,9 @@ export async function sendNotification(
 function formatTelegramMessage(keyword: string, items: SearchResultItem[]): string {
   const lines = items
     .slice(0, 5) // 너무 많으면 메시지 자름
-    .map((item, i) => `${i + 1}. <a href="${item.url}">${item.title}</a>`);
+    .map((item, i) => `${i + 1}. <a href="${escapeHtml(item.url)}">${escapeHtml(item.title)}</a>`);
 
-  return `🔔 <b>${keyword}</b> 새 결과 ${items.length}건 발견\n\n${lines.join('\n')}`;
+  return `🔔 <b>${escapeHtml(keyword)}</b> 새 결과 ${items.length}건 발견\n\n${lines.join('\n')}`;
 }
 
 function formatEmailHtml(keyword: string, items: SearchResultItem[]): string {
@@ -53,12 +53,21 @@ function formatEmailHtml(keyword: string, items: SearchResultItem[]): string {
     .slice(0, 10)
     .map(
       (item) =>
-        `<li><a href="${item.url}">${item.title}</a><br><span style="color:#666;font-size:13px;">${item.snippet}</span></li>`
+        `<li><a href="${escapeHtml(item.url)}">${escapeHtml(item.title)}</a><br><span style="color:#666;font-size:13px;">${escapeHtml(item.snippet)}</span></li>`
     )
     .join('');
 
   return `
-    <h2>"${keyword}" 새 결과 ${items.length}건</h2>
+    <h2>"${escapeHtml(keyword)}" 새 결과 ${items.length}건</h2>
     <ul style="padding-left:20px;">${rows}</ul>
   `;
+}
+
+// 기사 제목/스니펫에 &, <, > 같은 문자가 섞여 있으면
+// 텔레그램 HTML 파서가 400 에러를 뱉거나 이메일 마크업이 깨질 수 있어 이스케이프 처리
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
