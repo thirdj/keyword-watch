@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { estimateMonthlyUsage } from '@/lib/estimateUsage';
 
 export interface KeywordFormValue {
@@ -32,6 +32,12 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
   const [intervalMin, setIntervalMin] = useState(initialValue?.intervalMin ?? 480);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const keywordInputRef = useRef<HTMLInputElement>(null);
+
+  // 모달이 열리는 순간 키워드 입력창에 바로 포커스
+  useEffect(() => {
+    keywordInputRef.current?.focus();
+  }, []);
 
   // 수정 모드에서는 이 키워드 자신도 포함해서 계산 (내용이 바뀌어도 개수는 그대로니까)
   const usage = estimateMonthlyUsage(intervalMin, currentCount + 1);
@@ -74,6 +80,7 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
 
         <label className="field-label">키워드</label>
         <input
+          ref={keywordInputRef}
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           placeholder="아이폰 18"
@@ -102,10 +109,12 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
           </div>
         </div>
 
-        <div className={usageBoxClass} style={{ marginBottom: 16 }}>
-          전체 키워드 {currentCount + 1}개 기준 월 {usage.total.toLocaleString()}건 사용 (무료 한도의{' '}
-          {usage.percentOfLimit}%){usage.exceedsLimit && ' — 한도 초과 예상'}
-        </div>
+        {searchEngine === 'tavily' && (
+          <div className={usageBoxClass} style={{ marginBottom: 16 }}>
+            전체 키워드 {currentCount + 1}개 기준 월 {usage.total.toLocaleString()}건 사용 (무료 한도의{' '}
+            {usage.percentOfLimit}%){usage.exceedsLimit && ' — 한도 초과 예상'}
+          </div>
+        )}
 
         {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
 

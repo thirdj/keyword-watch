@@ -1,5 +1,6 @@
 import { getSearchAdapter } from '@/lib/search';
 import { detectNewResults, hashUrls } from '@/lib/detection/detectNewResults';
+import { matchesTitle } from '@/lib/detection/matchesTitle';
 import { sql } from '@/lib/db';
 import { SearchResultItem } from '@/lib/search/types';
 
@@ -16,7 +17,11 @@ export async function checkKeyword(
   isFirstCheck: boolean
 ): Promise<CheckResult> {
   const adapter = getSearchAdapter(engine);
-  const results = await adapter.search(keyword);
+  const rawResults = await adapter.search(keyword);
+
+  // 제목에 키워드 구성 단어가 다 들어있는 것만 "이 키워드에 관한 기사"로 인정
+  // (본문에만 스치듯 언급된 결과는 새 소식 알림 대상에서 제외)
+  const results = rawResults.filter((item) => matchesTitle(keyword, item.title));
 
   const { newItems, allUrls } = await detectNewResults(keywordId, results);
 

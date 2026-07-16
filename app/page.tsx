@@ -22,6 +22,13 @@ export default function DashboardPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState('');
   const [tavilyUsage, setTavilyUsage] = useState<{ remaining: number; limit: number } | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  // 진행률 바가 시간이 지남에 따라 저절로 움직이도록 1분마다 현재 시각을 갱신
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   async function fetchTavilyUsage() {
     try {
@@ -137,6 +144,7 @@ export default function DashboardPage() {
               keyword={kw}
               isLast={i === keywords.length - 1}
               isDeleting={deletingId === kw.id}
+              now={now}
               onEdit={() => openEditModal(kw)}
               onDelete={() => handleDelete(kw.id)}
             />
@@ -164,12 +172,14 @@ function KeywordRow({
   keyword,
   isLast,
   isDeleting,
+  now,
   onEdit,
   onDelete,
 }: {
   keyword: Keyword;
   isLast: boolean;
   isDeleting: boolean;
+  now: number;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -185,6 +195,8 @@ function KeywordRow({
   const dotClass = !hasChecked ? 'idle' : isNew ? 'new' : 'idle';
   const borderStyle = isLast ? 'none' : '1px solid var(--border)';
   const rowOpacity = isDeleting ? 0.5 : 1;
+
+  const progress = getCheckProgress(keyword, now);
 
   return (
     <div style={{ borderBottom: borderStyle, opacity: rowOpacity, transition: 'opacity 0.15s ease' }}>
@@ -241,8 +253,45 @@ function KeywordRow({
           </div>
         </div>
       </div>
+
+      {/* 다음 체크까지 남은 시간 — 데스크톱/모바일 공통 */}
+      <div className="kw-progress">
+        <div className="progress-track">
+          <div className="progress-fill" style={{ width: `${progress.percent}%` }} />
+        </div>
+        <span className="kw-progress-label">{progress.label}</span>
+      </div>
     </div>
   );
+}
+
+// 마지막 체크 시각 + 주기를 기준으로, 다음 체크까지 얼마나 남았는지 계산
+// (GitHub Actions가 30분마다 순찰하는 구조라, 실제 체크는 여기서 계산된 시점보다
+//  최대 30분 정도 늦게 이뤄질 수 있음)
+function getCheckProgress(keyword: Keyword, now: number): { percent: number; label: string } {
+  if (!keyword.last_checked_at) {
+    return { percent: 100, label: '곧 첫 확인 예정' };
+  }
+
+  const lastCheckedMs = new Date(keyword.last_checked_at).getTime();
+  const intervalMs = keyword.interval_min * 60_000;
+  const nextCheckMs = lastCheckedMs + intervalMs;
+  const elapsedMs = now - lastCheckedMs;
+
+  const percent = Math.min(100, Math.max(0, (elapsedMs / intervalMs) * 100));
+  const remainingMs = nextCheckMs - now;
+
+  const label = remainingMs <= 0 ? '곧 확인 예정' : `${formatRemaining(remainingMs)} 후 확인`;
+
+  return { percent, label };
+}
+
+function formatRemaining(ms: number): string {
+  const totalMin = Math.ceil(ms / 60_000);
+  if (totalMin < 60) return `${totalMin}분`;
+  const hours = Math.floor(totalMin / 60);
+  const mins = totalMin % 60;
+  return mins > 0 ? `${hours}시간 ${mins}분` : `${hours}시간`;
 }
 
 function formatInterval(min: number): string {
