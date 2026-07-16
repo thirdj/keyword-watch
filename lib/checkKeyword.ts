@@ -11,12 +11,17 @@ interface CheckResult {
 export async function checkKeyword(
   keywordId: number,
   keyword: string,
-  engine: string
+  engine: string,
+  isFirstCheck: boolean
 ): Promise<CheckResult> {
   const adapter = getSearchAdapter(engine);
   const results = await adapter.search(keyword);
 
   const { newItems, allUrls } = await detectNewResults(keywordId, results);
+
+  // 첫 체크(baseline)는 URL을 전부 새로 저장하는 것뿐, 실제 "새 결과 알림" 대상이 아니므로
+  // 화면 상태(check_logs.is_new)에도 true로 남기지 않는다. 알림 발송 여부와 정확히 일치시킴.
+  const isNewForDisplay = !isFirstCheck && newItems.length > 0;
 
   const [checkLog] = await sql`
     INSERT INTO check_logs (keyword_id, result_hash, top_urls, is_new)
@@ -24,7 +29,7 @@ export async function checkKeyword(
       ${keywordId},
       ${hashUrls(allUrls)},
       ${JSON.stringify(results)},
-      ${newItems.length > 0}
+      ${isNewForDisplay}
     )
     RETURNING id
   `;

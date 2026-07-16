@@ -1,6 +1,6 @@
 import { SearchAdapter, SearchResultItem } from './types';
 
-const RELEVANCE_THRESHOLD = 0.7; // 이 아래 점수는 노이즈로 판단해 제외
+const RELEVANCE_THRESHOLD = 0.5; // news 토픽은 general보다 점수 분포가 낮아서 기준 완화
 
 export const tavilyAdapter: SearchAdapter = {
   async search(keyword: string): Promise<SearchResultItem[]> {
@@ -13,7 +13,9 @@ export const tavilyAdapter: SearchAdapter = {
       body: JSON.stringify({
         query: keyword,
         max_results: 10,
-        search_depth: 'basic', // 기본이 크레딧 1건, advanced는 2건 소모
+        search_depth: 'basic',
+        topic: 'news', // 관련도순(general) 대신 최신순 가중치가 들어간 뉴스 전용 랭킹 사용
+        days: 3,        // 최근 3일 내 게시물만 — 오래된 고정 페이지가 계속 상위 차지하는 문제 방지
       }),
     });
 
@@ -29,6 +31,7 @@ export const tavilyAdapter: SearchAdapter = {
         title: item.title,
         url: item.url,
         snippet: cleanSnippet(item.content),
+        publishedAt: item.published_date,
       }));
   },
 };

@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     try {
       const isFirstCheck = kw.last_checked_at === null;
 
-      const { checkLogId, newItems } = await checkKeyword(kw.id, kw.keyword, kw.search_engine);
+      const { checkLogId, newItems } = await checkKeyword(kw.id, kw.keyword, kw.search_engine, isFirstCheck);
 
       if (isFirstCheck) {
         // 첫 체크는 baseline만 저장, 알림 없음 (등록 직후 알림 폭탄 방지)
