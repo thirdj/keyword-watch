@@ -13,15 +13,12 @@ interface Keyword {
   last_check_is_new: boolean | null;
 }
 
-const MAX_KEYWORDS = 10;
-
 export default function DashboardPage() {
   const [keywords, setKeywords] = useState<Keyword[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState('');
-  const [tavilyUsage, setTavilyUsage] = useState<{ remaining: number; limit: number } | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
   // 진행률 바가 시간이 지남에 따라 저절로 움직이도록 1분마다 현재 시각을 갱신
@@ -29,17 +26,6 @@ export default function DashboardPage() {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(timer);
   }, []);
-
-  async function fetchTavilyUsage() {
-    try {
-      const res = await fetch('/api/usage');
-      if (!res.ok) return; // 실패해도 화면엔 그냥 안 보여주면 됨, 핵심 기능 아님
-      const data = await res.json();
-      setTavilyUsage(data);
-    } catch {
-      // 조용히 무시 — 이 정보 없어도 서비스 동작엔 지장 없음
-    }
-  }
   const [modalMode, setModalMode] = useState<'create' | 'edit' | null>(null);
   const [editTarget, setEditTarget] = useState<KeywordFormValue | undefined>(undefined);
 
@@ -64,7 +50,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchKeywords();
-    fetchTavilyUsage();
   }, []);
 
   async function handleDelete(id: number) {
@@ -115,13 +100,10 @@ export default function DashboardPage() {
         <div>
           <h1 style={{ fontSize: 19, fontWeight: 600, margin: 0 }}>내 키워드</h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '3px 0 0' }}>
-            {keywords.length}/{MAX_KEYWORDS}개 등록됨
-            {tavilyUsage && (
-              <> · Tavily 잔여 {tavilyUsage.remaining.toLocaleString()}/{tavilyUsage.limit.toLocaleString()}</>
-            )}
+            {keywords.length}개 등록됨
           </p>
         </div>
-        <button className="primary" onClick={openCreateModal} disabled={keywords.length >= MAX_KEYWORDS}>
+        <button className="primary" onClick={openCreateModal}>
           키워드 추가
         </button>
       </div>

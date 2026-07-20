@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 
-const MAX_KEYWORDS = 10;
 const MIN_INTERVAL_MIN = 60; // 최소 1시간 — 크레딧 보호용 하한선
 
 export async function POST(req: Request) {
@@ -21,17 +20,6 @@ export async function POST(req: Request) {
     }
 
     const trimmedKeyword = keyword.trim();
-
-    // 개수 제한 체크
-    const [{ count }] = await sql`
-      SELECT COUNT(*)::int as count FROM keywords WHERE is_active = true
-    `;
-    if (count >= MAX_KEYWORDS) {
-      return NextResponse.json(
-        { error: `키워드는 최대 ${MAX_KEYWORDS}개까지 등록 가능해요.` },
-        { status: 400 }
-      );
-    }
 
     // 중복 등록 방지 — 대소문자/공백 차이는 무시하고 비교
     const duplicates = await sql`

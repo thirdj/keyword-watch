@@ -21,7 +21,17 @@ export async function checkKeyword(
   const rawResults = await adapter.search(keyword, lastCheckedAt ?? undefined);
 
   // 제목+요약에 키워드 구성 단어가 다 들어있는 것만 "이 키워드에 관한 기사"로 인정
-  const results = rawResults.filter((item) => matchesTitle(keyword, item.title, item.snippet));
+  const matched = rawResults.filter((item) => matchesTitle(keyword, item.title, item.snippet));
+
+  // 최신 기사가 위로 오도록 발행일 기준 내림차순 정렬.
+  // 검색 API마다 기본 정렬 기준이 다르므로(관련도순 등) 여기서 한 번 통일한다.
+  // 발행일 정보가 없는 결과는 뒤로 밀어낸다.
+  const results = [...matched].sort((a, b) => {
+    if (!a.publishedAt && !b.publishedAt) return 0;
+    if (!a.publishedAt) return 1;
+    if (!b.publishedAt) return -1;
+    return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+  });
 
   const { newItems, allUrls } = await detectNewResults(keywordId, results);
 
