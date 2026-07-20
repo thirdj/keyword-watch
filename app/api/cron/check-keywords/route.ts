@@ -36,12 +36,15 @@ export async function GET(req: Request) {
         lastCheckedAt
       );
 
-      if (resultCount === 0) {
-        // 검색 결과 자체가 0건 — 키워드 표현이 너무 좁거나 오타일 가능성 힌트
-        results.push({ keyword: kw.keyword, status: 'no_results' });
-      } else if (isFirstCheck) {
-        // 첫 체크는 baseline만 저장, 알림 없음 (등록 직후 알림 폭탄 방지)
-        results.push({ keyword: kw.keyword, status: 'baseline_saved', count: newItems.length });
+      if (isFirstCheck) {
+        // 첫 체크(baseline)에서 결과가 0건이면 키워드 표현이 너무 좁거나 오타일 가능성 힌트.
+        // baseline이 아닌 이후 체크에서 0건인 건 정상(RSS는 "마지막 확인 이후" 기준이라
+        // 새 기사가 없으면 당연히 0건) — 그건 아래 else 분기에서 no_change로 처리됨.
+        results.push({
+          keyword: kw.keyword,
+          status: resultCount === 0 ? 'no_results' : 'baseline_saved',
+          count: newItems.length,
+        });
       } else if (newItems.length > 0) {
         await sendNotification(kw.id, checkLogId, kw.keyword, newItems);
         results.push({ keyword: kw.keyword, status: 'notified', count: newItems.length });
