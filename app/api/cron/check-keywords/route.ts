@@ -26,12 +26,14 @@ export async function GET(req: Request) {
 
     try {
       const isFirstCheck = kw.last_checked_at === null;
+      const lastCheckedAt = kw.last_checked_at ? new Date(kw.last_checked_at) : null;
 
       const { checkLogId, newItems, resultCount } = await checkKeyword(
         kw.id,
         kw.keyword,
         kw.search_engine,
-        isFirstCheck
+        isFirstCheck,
+        lastCheckedAt
       );
 
       if (resultCount === 0) {

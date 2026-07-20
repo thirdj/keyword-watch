@@ -95,6 +95,7 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
               <option value="tavily">Tavily</option>
               <option value="naver">Naver</option>
               <option value="daum">Daum</option>
+              <option value="google_rss">Google News RSS</option>
             </select>
           </div>
           <div>

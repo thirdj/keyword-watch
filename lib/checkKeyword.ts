@@ -14,10 +14,11 @@ export async function checkKeyword(
   keywordId: number,
   keyword: string,
   engine: string,
-  isFirstCheck: boolean
+  isFirstCheck: boolean,
+  lastCheckedAt: Date | null
 ): Promise<CheckResult> {
   const adapter = getSearchAdapter(engine);
-  const rawResults = await adapter.search(keyword);
+  const rawResults = await adapter.search(keyword, lastCheckedAt ?? undefined);
 
   // 제목+요약에 키워드 구성 단어가 다 들어있는 것만 "이 키워드에 관한 기사"로 인정
   const results = rawResults.filter((item) => matchesTitle(keyword, item.title, item.snippet));

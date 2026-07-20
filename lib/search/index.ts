@@ -1,12 +1,14 @@
 import { tavilyAdapter } from './tavily';
 import { naverAdapter } from './naver';
 import { daumAdapter } from './daum';
+import { googleRssAdapter } from './googleRss';
 import { SearchAdapter } from './types';
 
 const adapters: Record<string, SearchAdapter> = {
   tavily: tavilyAdapter,
   naver: naverAdapter,
   daum: daumAdapter,
+  google_rss: googleRssAdapter,
 };
 
 export function getSearchAdapter(engine: string): SearchAdapter {

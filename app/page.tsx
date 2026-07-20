@@ -197,6 +197,7 @@ function KeywordRow({
   const rowOpacity = isDeleting ? 0.5 : 1;
 
   const progress = getCheckProgress(keyword, now);
+  const [showArticles, setShowArticles] = useState(false);
 
   return (
     <div style={{ borderBottom: borderStyle, opacity: rowOpacity, transition: 'opacity 0.15s ease' }}>
@@ -215,6 +216,9 @@ function KeywordRow({
             {statusLabel}
           </p>
         </div>
+        <button onClick={() => setShowArticles((v) => !v)} disabled={!hasChecked} style={{ fontSize: 12.5, padding: '6px 10px' }}>
+          기사 보기 {showArticles ? '▲' : '▼'}
+        </button>
         <span className="badge">{keyword.search_engine}</span>
         <span style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 52, textAlign: 'right' }}>
           {formatInterval(keyword.interval_min)}
@@ -244,6 +248,9 @@ function KeywordRow({
             </span>
           </div>
           <div className="kw-footer-actions">
+            <button onClick={() => setShowArticles((v) => !v)} disabled={!hasChecked}>
+              기사 {showArticles ? '▲' : '▼'}
+            </button>
             <button onClick={onEdit} disabled={isDeleting}>
               수정
             </button>
@@ -261,6 +268,78 @@ function KeywordRow({
         </div>
         <span className="kw-progress-label">{progress.label}</span>
       </div>
+
+      {showArticles && <ArticleList keywordId={keyword.id} />}
+    </div>
+  );
+}
+
+interface Article {
+  title: string;
+  url: string;
+  snippet: string;
+  publishedAt?: string;
+}
+
+// 키워드 행을 펼쳤을 때, 가장 최근 체크에서 찾은 기사만 보여준다.
+// 매번 검색할 때마다 이 목록은 통째로 최신 결과로 교체되고(과거 이력 누적 없음),
+// 그 시점에 찾은 게 없으면 "없음"으로 표시한다.
+function ArticleList({ keywordId }: { keywordId: number }) {
+  const [articles, setArticles] = useState<Article[] | null>(null);
+  const [checkedAt, setCheckedAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await fetch(`/api/keywords/${keywordId}/articles`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok) {
+          setError(data.error ?? '기사를 불러오지 못했어요.');
+        } else {
+          setArticles(data.articles);
+          setCheckedAt(data.checkedAt);
+        }
+      } catch {
+        if (!cancelled) setError('서버에 연결할 수 없어요.');
+      }
+      if (!cancelled) setLoading(false);
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [keywordId]);
+
+  return (
+    <div className="article-list">
+      {loading ? (
+        <p className="article-empty">불러오는 중...</p>
+      ) : error ? (
+        <p className="article-empty" style={{ color: 'var(--danger)' }}>{error}</p>
+      ) : !articles || articles.length === 0 ? (
+        <p className="article-empty">
+          {checkedAt ? `이 확인 시점(${formatRelativeTime(checkedAt)})엔 해당하는 기사가 없었어요.` : '아직 확인된 기사가 없어요.'}
+        </p>
+      ) : (
+        articles.map((a, i) => (
+          <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" className="article-row">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p className="article-title">{a.title}</p>
+              <p className="article-meta">
+                {new URL(a.url).hostname.replace(/^www\./, '')}
+                {a.publishedAt ? ` · ${formatRelativeTime(a.publishedAt)}` : ''}
+              </p>
+            </div>
+            <i className="article-link-icon" aria-hidden="true">↗</i>
+          </a>
+        ))
+      )}
     </div>
   );
 }

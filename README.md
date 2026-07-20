@@ -7,7 +7,7 @@
 1. 이 폴더를 `create-next-app`으로 만든 프로젝트 루트에 병합 (또는 이 구조 그대로 새 프로젝트 시작)
 2. 의존성 설치
    ```bash
-   npm install @neondatabase/serverless
+   npm install @neondatabase/serverless fast-xml-parser
    ```
 3. `.env.example`을 `.env.local`로 복사하고 값 채우기
 4. Neon 콘솔에서 `schema.sql` 실행해서 테이블 생성
