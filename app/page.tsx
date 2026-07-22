@@ -6,7 +6,7 @@ import KeywordModal, { KeywordFormValue } from '@/components/KeywordModal';
 interface Keyword {
   id: number;
   keyword: string;
-  search_engine: string;
+  search_engines: string[];
   interval_min: number;
   last_checked_at: string | null;
   is_active: boolean;
@@ -80,7 +80,7 @@ export default function DashboardPage() {
     setEditTarget({
       id: kw.id,
       keyword: kw.keyword,
-      searchEngine: kw.search_engine,
+      searchEngines: kw.search_engines,
       intervalMin: kw.interval_min,
     });
     setModalMode('edit');
@@ -93,6 +93,13 @@ export default function DashboardPage() {
 
   // 수정 모드일 땐 본인 자신을 뺀 나머지 개수 기준으로 사용량을 계산해야 정확함
   const countExcludingEditTarget = modalMode === 'edit' && editTarget ? keywords.length - 1 : keywords.length;
+
+  // 새 기사가 있는 키워드를 맨 위로 올리고, 그 안에서는 원래 순서를 유지 (안정 정렬)
+  const sortedKeywords = [...keywords].sort((a, b) => {
+    const aNew = a.last_check_is_new === true ? 1 : 0;
+    const bNew = b.last_check_is_new === true ? 1 : 0;
+    return bNew - aNew;
+  });
 
   return (
     <main style={{ maxWidth: 720, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
@@ -120,11 +127,11 @@ export default function DashboardPage() {
         <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>등록된 키워드가 없어요. 추가해보세요.</p>
       ) : (
         <div className="card" style={{ overflow: 'hidden' }}>
-          {keywords.map((kw, i) => (
+          {sortedKeywords.map((kw, i) => (
             <KeywordRow
               key={kw.id}
               keyword={kw}
-              isLast={i === keywords.length - 1}
+              isLast={i === sortedKeywords.length - 1}
               isDeleting={deletingId === kw.id}
               now={now}
               onEdit={() => openEditModal(kw)}
@@ -201,7 +208,11 @@ function KeywordRow({
         <button onClick={() => setShowArticles((v) => !v)} disabled={!hasChecked} style={{ fontSize: 12.5, padding: '6px 10px' }}>
           기사 보기 {showArticles ? '▲' : '▼'}
         </button>
-        <span className="badge">{keyword.search_engine}</span>
+        <span style={{ display: 'flex', gap: 4 }}>
+          {keyword.search_engines.map((engine) => (
+            <span key={engine} className="badge">{engine}</span>
+          ))}
+        </span>
         <span style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 52, textAlign: 'right' }}>
           {formatInterval(keyword.interval_min)}
         </span>
@@ -224,7 +235,9 @@ function KeywordRow({
         </div>
         <div className="kw-footer">
           <div className="kw-footer-meta">
-            <span className="badge">{keyword.search_engine}</span>
+            {keyword.search_engines.map((engine) => (
+              <span key={engine} className="badge">{engine}</span>
+            ))}
             <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
               {formatInterval(keyword.interval_min)}
             </span>

@@ -6,7 +6,7 @@ import { estimateMonthlyUsage } from '@/lib/estimateUsage';
 export interface KeywordFormValue {
   id?: number;
   keyword: string;
-  searchEngine: string;
+  searchEngines: string[];
   intervalMin: number;
 }
 
@@ -26,9 +26,18 @@ const INTERVAL_OPTIONS = [
   { value: 1440, label: '1일마다' },
 ];
 
+const ENGINE_OPTIONS = [
+  { value: 'google_rss', label: 'Google RSS', color: '#4285f4' },
+  { value: 'daum', label: 'Daum', color: '#fee500' },
+  { value: 'tavily', label: 'Tavily', color: '#6366f1' },
+  { value: 'naver', label: 'Naver', color: '#03c75a' },
+];
+
+const MAX_ENGINES = 3;
+
 export default function KeywordModal({ mode, initialValue, currentCount, onClose, onSaved }: Props) {
   const [keyword, setKeyword] = useState(initialValue?.keyword ?? '');
-  const [searchEngine, setSearchEngine] = useState(initialValue?.searchEngine ?? 'tavily');
+  const [searchEngines, setSearchEngines] = useState<string[]>(initialValue?.searchEngines ?? ['google_rss']);
   const [intervalMin, setIntervalMin] = useState(initialValue?.intervalMin ?? 480);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -41,6 +50,20 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
 
   // 수정 모드에서는 이 키워드 자신도 포함해서 계산 (내용이 바뀌어도 개수는 그대로니까)
   const usage = estimateMonthlyUsage(intervalMin, currentCount + 1);
+  // 여러 엔진 중 tavily가 포함된 경우에만 무료 한도 사용량을 보여준다 (다른 엔진은 자체 한도 없음)
+  const usesTavily = searchEngines.includes('tavily');
+
+  function toggleEngine(value: string) {
+    setSearchEngines((prev) => {
+      if (prev.includes(value)) {
+        // 최소 1개는 남겨야 함
+        if (prev.length === 1) return prev;
+        return prev.filter((e) => e !== value);
+      }
+      if (prev.length >= MAX_ENGINES) return prev; // 최대 3개
+      return [...prev, value];
+    });
+  }
 
   async function handleSave() {
     setError('');
@@ -53,7 +76,7 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyword, searchEngine, intervalMin }),
+        body: JSON.stringify({ keyword, searchEngines, intervalMin }),
       });
 
       if (!res.ok) {
@@ -88,29 +111,69 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
           style={{ marginBottom: 12 }}
         />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-          <div>
-            <label className="field-label">검색엔진</label>
-            <select value={searchEngine} onChange={(e) => setSearchEngine(e.target.value)} disabled={saving}>
-              <option value="tavily">Tavily</option>
-              <option value="naver">Naver</option>
-              <option value="daum">Daum</option>
-              <option value="google_rss">Google News RSS</option>
-            </select>
-          </div>
-          <div>
-            <label className="field-label">확인 주기</label>
-            <select value={intervalMin} onChange={(e) => setIntervalMin(Number(e.target.value))} disabled={saving}>
-              {INTERVAL_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <label className="field-label">
+          검색엔진 <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(최대 {MAX_ENGINES}개, 여러 엔진 결과를 합쳐서 확인해요)</span>
+        </label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+          {ENGINE_OPTIONS.map((opt) => {
+            const checked = searchEngines.includes(opt.value);
+            const disabledOption = saving || (!checked && searchEngines.length >= MAX_ENGINES);
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => toggleEngine(opt.value)}
+                disabled={disabledOption}
+                aria-pressed={checked}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  fontSize: 13,
+                  fontWeight: checked ? 600 : 400,
+                  height: 34,
+                  padding: '0 12px',
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap',
+                  border: `1px solid ${checked ? 'var(--accent)' : 'var(--border)'}`,
+                  background: checked ? 'var(--accent-bg)' : 'transparent',
+                  color: checked ? 'var(--accent)' : 'var(--text-primary)',
+                  borderRadius: 999,
+                  cursor: disabledOption ? 'not-allowed' : 'pointer',
+                  opacity: disabledOption ? 0.4 : 1,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: opt.color,
+                    flexShrink: 0,
+                  }}
+                />
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
 
-        {searchEngine === 'tavily' && (
+        <label className="field-label">확인 주기</label>
+        <select
+          value={intervalMin}
+          onChange={(e) => setIntervalMin(Number(e.target.value))}
+          disabled={saving}
+          style={{ marginBottom: 12 }}
+        >
+          {INTERVAL_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+
+        {usesTavily && (
           <div className={usageBoxClass} style={{ marginBottom: 16 }}>
             전체 키워드 {currentCount + 1}개 기준 월 {usage.total.toLocaleString()}건 사용 (무료 한도의{' '}
             {usage.percentOfLimit}%){usage.exceedsLimit && ' — 한도 초과 예상'}
@@ -123,7 +186,7 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
           <button onClick={onClose} disabled={saving}>
             취소
           </button>
-          <button className="primary" onClick={handleSave} disabled={saving || !keyword.trim()}>
+          <button className="primary" onClick={handleSave} disabled={saving || !keyword.trim() || searchEngines.length === 0}>
             {saving ? '저장 중...' : mode === 'create' ? '키워드 저장' : '수정 저장'}
           </button>
         </div>

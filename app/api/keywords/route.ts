@@ -1,16 +1,33 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { SUPPORTED_ENGINES } from '@/lib/search';
 
 const MIN_INTERVAL_MIN = 60; // 최소 1시간 — 크레딧 보호용 하한선
+const MAX_ENGINES = 3;       // 검색엔진은 최대 3개까지 동시 등록 가능
+
+function validateEngines(searchEngines: unknown): string[] | null {
+  if (!Array.isArray(searchEngines) || searchEngines.length === 0) return null;
+  if (searchEngines.length > MAX_ENGINES) return null;
+  const deduped = Array.from(new Set(searchEngines));
+  if (deduped.some((e) => typeof e !== 'string' || !SUPPORTED_ENGINES.includes(e))) return null;
+  return deduped as string[];
+}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { keyword, searchEngine, intervalMin } = body;
+    const { keyword, searchEngines, intervalMin } = body;
 
     // 입력 검증
     if (!keyword?.trim()) {
       return NextResponse.json({ error: '키워드를 입력해주세요.' }, { status: 400 });
+    }
+    const engines = validateEngines(searchEngines);
+    if (!engines) {
+      return NextResponse.json(
+        { error: `검색엔진을 1~${MAX_ENGINES}개 선택해주세요.` },
+        { status: 400 }
+      );
     }
     if (intervalMin < MIN_INTERVAL_MIN) {
       return NextResponse.json(
@@ -31,9 +48,9 @@ export async function POST(req: Request) {
     }
 
     const [newKeyword] = await sql`
-      INSERT INTO keywords (user_id, keyword, search_engine, interval_min, is_active)
-      VALUES ('me', ${trimmedKeyword}, ${searchEngine}, ${intervalMin}, true)
-      RETURNING id, keyword, search_engine, interval_min
+      INSERT INTO keywords (user_id, keyword, search_engines, interval_min, is_active)
+      VALUES ('me', ${trimmedKeyword}, ${engines}, ${intervalMin}, true)
+      RETURNING id, keyword, search_engines, interval_min
     `;
 
     return NextResponse.json(newKeyword, { status: 201 });
@@ -49,7 +66,7 @@ export async function GET() {
     // 대시보드 상태점(새 결과 있었는지)을 정확히 표시할 수 있게 함
     const keywords = await sql`
       SELECT
-        k.id, k.keyword, k.search_engine, k.interval_min, k.last_checked_at, k.is_active,
+        k.id, k.keyword, k.search_engines, k.interval_min, k.last_checked_at, k.is_active,
         latest.is_new AS last_check_is_new
       FROM keywords k
       LEFT JOIN LATERAL (

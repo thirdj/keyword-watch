@@ -14,27 +14,28 @@ export async function GET(req: Request) {
   const dueKeywords = await getDueKeywords();
   const results = [];
 
-  // 이번 실행에서 이미 한도 초과가 확인된 provider는 나머지 키워드도 호출 없이 바로 스킵
-  // (크레딧 소진 상태에서 나머지 키워드마다 계속 API를 두드려봤자 전부 429만 받을 뿐이라 낭비)
-  const rateLimitedProviders = new Set<string>();
+  // 이번 실행에서 이미 한도 초과가 확인된 엔진은, 그 엔진을 쓰는 다른 키워드에서도
+  // 호출 없이 바로 스킵한다 (크레딧 소진 상태에서 계속 두드려봤자 전부 429만 받을 뿐이라 낭비).
+  // 키워드가 엔진을 여러 개 쓸 수 있으니 이제 엔진 단위(Set<string>)로 추적한다.
+  const rateLimitedEngines = new Set<string>();
 
   for (const kw of dueKeywords) {
-    if (rateLimitedProviders.has(kw.search_engine)) {
-      results.push({ keyword: kw.keyword, status: 'rate_limited', skipped: true });
-      continue;
-    }
+    const engines: string[] = kw.search_engines;
 
     try {
       const isFirstCheck = kw.last_checked_at === null;
       const lastCheckedAt = kw.last_checked_at ? new Date(kw.last_checked_at) : null;
 
-      const { checkLogId, newItems, resultCount } = await checkKeyword(
+      const { checkLogId, newItems, resultCount, rateLimitedEngines: newlyLimited } = await checkKeyword(
         kw.id,
         kw.keyword,
-        kw.search_engine,
+        engines,
         isFirstCheck,
-        lastCheckedAt
+        lastCheckedAt,
+        rateLimitedEngines
       );
+
+      newlyLimited.forEach((e) => rateLimitedEngines.add(e));
 
       if (isFirstCheck) {
         // 첫 체크(baseline)에서 결과가 0건이면 키워드 표현이 너무 좁거나 오타일 가능성 힌트.
@@ -53,8 +54,8 @@ export async function GET(req: Request) {
       }
     } catch (err: any) {
       if (err instanceof RateLimitError) {
-        rateLimitedProviders.add(kw.search_engine);
-        console.warn(`${kw.search_engine} 한도 초과, 이번 실행에서 이후 동일 provider 키워드는 스킵합니다.`);
+        err.provider.split(',').forEach((e) => rateLimitedEngines.add(e));
+        console.warn(`한도 초과(${err.provider}), 이번 실행에서 해당 엔진을 쓰는 나머지 키워드는 스킵합니다.`);
         results.push({ keyword: kw.keyword, status: 'rate_limited' });
       } else {
         // 한 키워드 실패해도 나머지는 계속 진행

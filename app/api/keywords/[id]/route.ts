@@ -1,5 +1,16 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
+import { SUPPORTED_ENGINES } from '@/lib/search';
+
+const MAX_ENGINES = 3;
+
+function validateEngines(searchEngines: unknown): string[] | null {
+  if (!Array.isArray(searchEngines) || searchEngines.length === 0) return null;
+  if (searchEngines.length > MAX_ENGINES) return null;
+  const deduped = Array.from(new Set(searchEngines));
+  if (deduped.some((e) => typeof e !== 'string' || !SUPPORTED_ENGINES.includes(e))) return null;
+  return deduped as string[];
+}
 
 export async function PATCH(
   req: Request,
@@ -7,10 +18,17 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const { keyword, searchEngine, intervalMin } = await req.json();
+    const { keyword, searchEngines, intervalMin } = await req.json();
 
     if (!keyword?.trim()) {
       return NextResponse.json({ error: '키워드를 입력해주세요.' }, { status: 400 });
+    }
+    const engines = validateEngines(searchEngines);
+    if (!engines) {
+      return NextResponse.json(
+        { error: `검색엔진을 1~${MAX_ENGINES}개 선택해주세요.` },
+        { status: 400 }
+      );
     }
     if (intervalMin < 60) {
       return NextResponse.json({ error: '최소 1시간 이상으로 설정해주세요.' }, { status: 400 });
@@ -31,7 +49,7 @@ export async function PATCH(
 
     await sql`
       UPDATE keywords
-      SET keyword = ${trimmedKeyword}, search_engine = ${searchEngine}, interval_min = ${intervalMin}
+      SET keyword = ${trimmedKeyword}, search_engines = ${engines}, interval_min = ${intervalMin}
       WHERE id = ${id}
     `;
     return NextResponse.json({ success: true });

@@ -16,3 +16,5 @@ export function getSearchAdapter(engine: string): SearchAdapter {
   if (!adapter) throw new Error(`지원하지 않는 검색엔진: ${engine}`);
   return adapter;
 }
+
+export const SUPPORTED_ENGINES = Object.keys(adapters);
