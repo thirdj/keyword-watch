@@ -204,6 +204,13 @@ label.field-label {
 }
 
 @media (max-width: 640px) {
+  /* 16px 미만인 input/select에 포커스가 가면 iOS Safari가 화면을 자동으로 확대해버림 —
+     그걸 막기 위한 최소값. 데스크톱(14px)은 그대로 두고 모바일에서만 올린다. */
+  input,
+  select {
+    font-size: 16px;
+  }
+
   .kw-row-desktop {
     display: none;
   }
