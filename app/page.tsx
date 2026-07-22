@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import KeywordModal, { KeywordFormValue } from '@/components/KeywordModal';
+import KeywordActionSheet from '@/components/KeywordActionSheet';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 interface Keyword {
   id: number;
@@ -12,6 +14,14 @@ interface Keyword {
   is_active: boolean;
   last_check_is_new: boolean | null;
 }
+
+// DB엔 'google_rss' 같은 코드로 저장되지만, 화면엔 "Google RSS"처럼 사람이 읽기 좋은 이름으로 보여줌
+const ENGINE_LABELS: Record<string, string> = {
+  tavily: 'Tavily',
+  naver: 'Naver',
+  daum: 'Daum',
+  google_rss: 'Google RSS',
+};
 
 export default function DashboardPage() {
   const [keywords, setKeywords] = useState<Keyword[]>([]);
@@ -53,7 +63,6 @@ export default function DashboardPage() {
   }, []);
 
   async function handleDelete(id: number) {
-    if (!confirm('이 키워드를 삭제할까요?')) return;
     setDeleteError('');
     setDeletingId(id);
     try {
@@ -185,87 +194,134 @@ function KeywordRow({
   const borderStyle = isLast ? 'none' : '1px solid var(--border)';
   const rowOpacity = isDeleting ? 0.5 : 1;
 
-  const progress = getCheckProgress(keyword, now);
+  const nextCheckLabel = getNextCheckLabel(keyword, now);
   const [showArticles, setShowArticles] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   return (
     <div style={{ borderBottom: borderStyle, opacity: rowOpacity, transition: 'opacity 0.15s ease' }}>
-      {/* 데스크톱: 한 줄 레이아웃 */}
-      <div className="kw-row-desktop" style={{ alignItems: 'center', gap: 12, padding: '14px 16px' }}>
-        <span className={`status-dot ${dotClass}`} aria-hidden="true" />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 14, fontWeight: 500, margin: 0 }}>{keyword.keyword}</p>
-          <p
-            style={{
-              fontSize: 12,
-              color: isNew ? 'var(--success)' : 'var(--text-secondary)',
-              margin: '2px 0 0',
-            }}
-          >
-            {statusLabel}
-          </p>
-        </div>
-        <button onClick={() => setShowArticles((v) => !v)} disabled={!hasChecked} style={{ fontSize: 12.5, padding: '6px 10px' }}>
-          기사 보기 {showArticles ? '▲' : '▼'}
-        </button>
-        <span style={{ display: 'flex', gap: 4 }}>
-          {keyword.search_engines.map((engine) => (
-            <span key={engine} className="badge">{engine}</span>
-          ))}
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)', minWidth: 52, textAlign: 'right' }}>
-          {formatInterval(keyword.interval_min)}
-        </span>
-        <button onClick={onEdit} disabled={isDeleting} style={{ fontSize: 12.5, padding: '6px 10px' }}>
-          수정
-        </button>
-        <button className="danger-ghost" onClick={onDelete} disabled={isDeleting}>
-          {isDeleting ? '삭제 중...' : '삭제'}
-        </button>
-      </div>
-
-      {/* 모바일: 2단 카드 레이아웃 — 제목/상태 위, 메타정보+버튼 아래 */}
-      <div className="kw-row-mobile">
+      {/* 제목/상태 + "..." 메뉴 → 검색엔진(텍스트) → 기사토글+주기(왼쪽)/다음 확인까지 남은 시간(오른쪽).
+          뷰포트 상관없이 항상 같은 구조라 어떤 행이든 정렬이 안 흔들림 */}
+      <div className="kw-row">
         <div className="kw-top">
           <span className={`status-dot ${dotClass}`} aria-hidden="true" />
           <div style={{ flex: 1, minWidth: 0 }}>
             <p className="kw-title">{keyword.keyword}</p>
             <p className={`kw-status ${isNew ? 'new' : ''}`}>{statusLabel}</p>
           </div>
+          <button
+            type="button"
+            className="kw-menu-btn"
+            aria-label="키워드 메뉴 열기"
+            onClick={() => setMenuOpen(true)}
+          >
+            <DotsIcon />
+          </button>
         </div>
-        <div className="kw-footer">
-          <div className="kw-footer-meta">
-            {keyword.search_engines.map((engine) => (
-              <span key={engine} className="badge">{engine}</span>
-            ))}
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              {formatInterval(keyword.interval_min)}
+
+        {keyword.search_engines.length > 0 && (
+          <p className="kw-engines">
+            {keyword.search_engines.map((e) => ENGINE_LABELS[e] ?? e).join(' · ')}
+          </p>
+        )}
+
+        <div className="kw-meta-row">
+          <div className="kw-meta-left">
+            <button
+              type="button"
+              className="kw-view-btn"
+              disabled={!hasChecked}
+              onClick={() => setShowArticles((v) => !v)}
+            >
+              <ArticleIcon /> 기사 <ChevronIcon up={showArticles} />
+            </button>
+            <span className="kw-interval">
+              <ClockIcon /> {formatInterval(keyword.interval_min)}
             </span>
           </div>
-          <div className="kw-footer-actions">
-            <button onClick={() => setShowArticles((v) => !v)} disabled={!hasChecked}>
-              기사 {showArticles ? '▲' : '▼'}
-            </button>
-            <button onClick={onEdit} disabled={isDeleting}>
-              수정
-            </button>
-            <button className="danger-ghost" onClick={onDelete} disabled={isDeleting}>
-              {isDeleting ? '삭제 중...' : '삭제'}
-            </button>
-          </div>
+          <span className="kw-next-check">{nextCheckLabel}</span>
         </div>
-      </div>
-
-      {/* 다음 체크까지 남은 시간 — 데스크톱/모바일 공통 */}
-      <div className="kw-progress">
-        <div className="progress-track">
-          <div className="progress-fill" style={{ width: `${progress.percent}%` }} />
-        </div>
-        <span className="kw-progress-label">{progress.label}</span>
       </div>
 
       {showArticles && <ArticleList keywordId={keyword.id} />}
+
+      {menuOpen && (
+        <KeywordActionSheet
+          onEdit={() => {
+            setMenuOpen(false);
+            onEdit();
+          }}
+          onDelete={() => {
+            setMenuOpen(false);
+            setConfirmDeleteOpen(true);
+          }}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
+
+      {confirmDeleteOpen && (
+        <ConfirmDialog
+          title="키워드 삭제"
+          message={`"${keyword.keyword}" 키워드를 삭제할까요? 확인 이력도 함께 사라져요.`}
+          confirmLabel="삭제"
+          confirming={isDeleting}
+          onCancel={() => setConfirmDeleteOpen(false)}
+          onConfirm={() => {
+            onDelete();
+            setConfirmDeleteOpen(false);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function DotsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
+    </svg>
+  );
+}
+
+function ArticleIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+      <path d="M9 13h6M9 17h6" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ up }: { up: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ transform: up ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 3" />
+    </svg>
   );
 }
 
@@ -342,22 +398,17 @@ function ArticleList({ keywordId }: { keywordId: number }) {
 // 마지막 체크 시각 + 주기를 기준으로, 다음 체크까지 얼마나 남았는지 계산
 // (GitHub Actions가 30분마다 순찰하는 구조라, 실제 체크는 여기서 계산된 시점보다
 //  최대 30분 정도 늦게 이뤄질 수 있음)
-function getCheckProgress(keyword: Keyword, now: number): { percent: number; label: string } {
+function getNextCheckLabel(keyword: Keyword, now: number): string {
   if (!keyword.last_checked_at) {
-    return { percent: 100, label: '곧 첫 확인 예정' };
+    return '곧 첫 확인 예정';
   }
 
   const lastCheckedMs = new Date(keyword.last_checked_at).getTime();
   const intervalMs = keyword.interval_min * 60_000;
   const nextCheckMs = lastCheckedMs + intervalMs;
-  const elapsedMs = now - lastCheckedMs;
-
-  const percent = Math.min(100, Math.max(0, (elapsedMs / intervalMs) * 100));
   const remainingMs = nextCheckMs - now;
 
-  const label = remainingMs <= 0 ? '곧 확인 예정' : `${formatRemaining(remainingMs)} 후 확인`;
-
-  return { percent, label };
+  return remainingMs <= 0 ? '곧 확인 예정' : `${formatRemaining(remainingMs)} 후 확인`;
 }
 
 function formatRemaining(ms: number): string {

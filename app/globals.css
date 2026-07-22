@@ -195,12 +195,82 @@ label.field-label {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
 }
 
-/* 키워드 행 — 데스크톱은 한 줄, 모바일은 2단 카드로 전환 */
-.kw-row-desktop {
-  display: flex;
+/* 키워드 카드 — 뷰포트 상관없이 항상 같은 구조.
+   제목/상태(+"..." 메뉴) → 검색엔진(텍스트) → 기사토글+주기(왼쪽)/다음 확인까지 남은 시간(오른쪽) */
+.kw-row {
+  padding: 14px 16px;
 }
-.kw-row-mobile {
-  display: none;
+.kw-row .kw-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.kw-row .kw-top .status-dot {
+  margin-top: 6px;
+}
+.kw-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.35;
+}
+.kw-status {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+}
+.kw-status.new {
+  color: var(--success);
+}
+.kw-engines {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin: 0 0 10px;
+}
+.kw-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.kw-meta-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.kw-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  padding: 4px 6px;
+  margin-left: -6px;
+  border: none;
+  background: transparent;
+}
+.kw-view-btn:hover:not(:disabled) {
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+}
+.kw-interval {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.kw-next-check {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.kw-menu-btn {
+  margin-top: -4px;
 }
 
 @media (max-width: 640px) {
@@ -210,84 +280,111 @@ label.field-label {
   select {
     font-size: 16px;
   }
-
-  .kw-row-desktop {
-    display: none;
-  }
-  .kw-row-mobile {
-    display: block;
-    padding: 14px 16px;
-  }
-  .kw-row-mobile .kw-top {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-  .kw-row-mobile .kw-top .status-dot {
-    margin-top: 6px;
-  }
-  .kw-row-mobile .kw-title {
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0;
-    line-height: 1.35;
-  }
-  .kw-row-mobile .kw-status {
-    font-size: 12.5px;
-    color: var(--text-secondary);
-    margin: 4px 0 0;
-  }
-  .kw-row-mobile .kw-status.new {
-    color: var(--success);
-  }
-  .kw-row-mobile .kw-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-  .kw-row-mobile .kw-footer-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .kw-row-mobile .kw-footer-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .kw-row-mobile .kw-footer-actions button {
-    padding: 6px 10px;
-    font-size: 12.5px;
-  }
 }
 
-/* 다음 체크까지 남은 시간 진행률 바 */
-.kw-progress {
+.kw-menu-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  padding: 5px 7px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 16px 14px;
+  justify-content: center;
 }
-.progress-track {
-  flex: 1;
-  height: 4px;
+.kw-menu-btn:hover:not(:disabled) {
   background: var(--surface-muted);
-  border-radius: 2px;
-  overflow: hidden;
+  border-radius: var(--radius-sm);
 }
-.progress-fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 2px;
-  transition: width 0.6s ease;
+
+/* 모바일 카드 "..." → 바텀시트 메뉴 */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 18, 14, 0.35);
+  display: flex;
+  align-items: flex-end;
+  z-index: 60;
 }
-.kw-progress-label {
-  font-size: 11.5px;
-  color: var(--text-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
+.sheet-panel {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--surface);
+  border-radius: 16px 16px 0 0;
+  padding: 10px 8px calc(env(safe-area-inset-bottom, 0px) + 10px);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.12);
+  animation: sheet-up 0.18s ease-out;
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(16px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-strong);
+  margin: 2px auto 10px;
+}
+.sheet-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  background: transparent;
+  padding: 13px 14px;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  border-radius: 10px;
+  text-align: left;
+}
+.sheet-item:hover:not(:disabled) {
+  background: var(--surface-muted);
+}
+.sheet-item.danger {
+  color: var(--danger);
+}
+
+/* 삭제 등 확인 다이얼로그 (.modal-overlay 재사용) */
+.confirm-panel {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 20px;
+  width: 320px;
+  max-width: calc(100vw - 40px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+.confirm-title {
+  font-size: 15.5px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.confirm-message {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  margin: 0 0 18px;
+}
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+button.danger-solid {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+button.danger-solid:hover:not(:disabled) {
+  background: #c81e1e;
 }
 
 /* 기사 목록 (펼침) */
