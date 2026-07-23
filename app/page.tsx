@@ -426,6 +426,8 @@ function formatInterval(min: number): string {
 
 function formatRelativeTime(iso: string): string {
   const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  if (diffMin < 60) return `${diffMin}분 전 확인`;
-  return `${Math.round(diffMin / 60)}시간 전 확인`;
+  if (diffMin < 60) return `${diffMin}분 전`;
+  const diffHour = Math.round(diffMin / 60);
+  if (diffHour < 48) return `${diffHour}시간 전`;
+  return `${Math.round(diffHour / 24)}일 전`;
 }

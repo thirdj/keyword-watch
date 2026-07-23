@@ -1,6 +1,7 @@
 import { getSearchAdapter } from '@/lib/search';
 import { detectNewResults, hashUrls } from '@/lib/detection/detectNewResults';
 import { matchesTitle } from '@/lib/detection/matchesTitle';
+import { getExcludedDomains, extractDomain } from '@/lib/excludedDomains';
 import { sql } from '@/lib/db';
 import { SearchResultItem } from '@/lib/search/types';
 import { RateLimitError } from '@/lib/search/errors';
@@ -57,8 +58,17 @@ export async function checkKeyword(
   // 여러 엔진 결과를 합치면 같은 기사가 URL 기준으로 중복될 수 있어 먼저 제거
   const deduped = dedupeByUrl(rawResults);
 
+  // 나무위키/블로그류처럼 뉴스 기사로 보기 어려운 도메인은 매칭 이전에 아예 제외.
+  // (긴 백과사전형 문서 안에 키워드 단어가 무관한 문맥으로 우연히 섞여 들어가 있어도
+  //  matchesTitle을 통과해버리는 오탐을 여기서 원천 차단한다)
+  const excludedDomains = await getExcludedDomains();
+  const filtered = deduped.filter((item) => {
+    const domain = extractDomain(item.url);
+    return domain ? !excludedDomains.has(domain) : true;
+  });
+
   // 제목+요약에 키워드 구성 단어가 다 들어있는 것만 "이 키워드에 관한 기사"로 인정
-  const matched = deduped.filter((item) => matchesTitle(keyword, item.title, item.snippet));
+  const matched = filtered.filter((item) => matchesTitle(keyword, item.title, item.snippet));
 
   // 최신 기사가 위로 오도록 발행일 기준 내림차순 정렬.
   // 검색 API마다 기본 정렬 기준이 다르므로(관련도순 등) 여기서 한 번 통일한다.

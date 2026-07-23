@@ -4,11 +4,12 @@ CREATE TABLE keywords (
   id            SERIAL PRIMARY KEY,
   user_id       TEXT NOT NULL,
   keyword       TEXT NOT NULL,
-  search_engine TEXT NOT NULL DEFAULT 'tavily', -- 'tavily' | 'naver'
+  search_engines TEXT[] NOT NULL DEFAULT ARRAY['google_rss'], -- 'tavily' | 'naver' | 'daum' | 'google_rss' 중 1~3개
   interval_min  INTEGER NOT NULL DEFAULT 480,   -- 확인 주기(분 단위), 최소 60
   is_active     BOOLEAN NOT NULL DEFAULT true,
   last_checked_at TIMESTAMPTZ,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT search_engines_count CHECK (array_length(search_engines, 1) BETWEEN 1 AND 3)
 );
 
 CREATE TABLE check_logs (
@@ -49,6 +50,9 @@ CREATE TABLE notification_channels (
   is_active BOOLEAN NOT NULL DEFAULT true
 );
 
+-- 나무위키/블로그/위키백과처럼 뉴스 기사로 보기 어렵고, 페이지 안에 어떤 단어든
+-- 우연히 섞여 있을 확률이 높아 오탐이 잦은 도메인. 검색 결과에서 매칭 이전 단계에
+-- 아예 제외하는 용도로 쓴다 (lib/excludedDomains.ts, lib/checkKeyword.ts 참고)
 CREATE TABLE volatile_domains (
   domain TEXT PRIMARY KEY
 );
