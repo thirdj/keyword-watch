@@ -13,13 +13,6 @@ interface CheckResult {
   rateLimitedEngines: string[]; // 이번 호출에서 새로 한도 초과가 확인된 엔진들
 }
 
-// 매칭 시 요약(snippet)까지 신뢰할 수 없는 엔진 — 뉴스 전용이 아니라 일반 웹검색이라
-// 요약에 페이지의 광고/관련상품 위젯 텍스트 같은 게 섞여 들어올 수 있음.
-// 이 엔진들은 제목에 키워드가 직접 있을 때만 매칭시킨다.
-const SNIPPET_UNRELIABLE_ENGINES = new Set(['daum']);
-
-type SourcedItem = SearchResultItem & { engine: string };
-
 export async function checkKeyword(
   keywordId: number,
   keyword: string,
@@ -37,15 +30,13 @@ export async function checkKeyword(
     throw new RateLimitError(engines.join(','), '선택된 검색엔진이 모두 이번 실행에서 한도 초과 상태예요.');
   }
 
-  // 여러 엔진을 동시에 호출하고, 하나가 실패해도 나머지 결과는 살린다
+  // 여러 엔진을 동시에 호출하고, 하나가 실패해도 나머지 결과는 살린다.
+  // Google RSS / Naver News 둘 다 뉴스 전용 API라 제목·요약을 동일하게 신뢰할 수 있음
   const settled = await Promise.allSettled(
-    activeEngines.map(async (engine) => {
-      const items = await getSearchAdapter(engine).search(keyword, lastCheckedAt ?? undefined);
-      return items.map((item): SourcedItem => ({ ...item, engine }));
-    })
+    activeEngines.map((engine) => getSearchAdapter(engine).search(keyword, lastCheckedAt ?? undefined))
   );
 
-  const rawResults: SourcedItem[] = [];
+  const rawResults: SearchResultItem[] = [];
   const rateLimitedEngines: string[] = [];
 
   settled.forEach((result, i) => {
@@ -68,40 +59,25 @@ export async function checkKeyword(
   // 여러 엔진 결과를 합치면 같은 기사가 URL 기준으로 중복될 수 있어 먼저 제거
   const deduped = dedupeByUrl(rawResults);
 
-  // 나무위키/블로그류처럼 뉴스 기사로 보기 어려운 도메인은 매칭 이전에 아예 제외.
-  // (긴 백과사전형 문서 안에 키워드 단어가 무관한 문맥으로 우연히 섞여 들어가 있어도
-  //  matchesTitle을 통과해버리는 오탐을 여기서 원천 차단한다)
+  // 나무위키/블로그류처럼 뉴스 기사로 보기 어려운 도메인은 매칭 이전에 아예 제외
   const excludedDomains = await getExcludedDomains();
   const filtered = deduped.filter((item) => {
     const domain = extractDomain(item.url);
     return domain ? !excludedDomains.has(domain) : true;
   });
 
-  // 제목+요약에 키워드 구성 단어가 다 들어있는 것만 "이 키워드에 관한 기사"로 인정.
-  // 단, 요약을 못 믿는 엔진(SNIPPET_UNRELIABLE_ENGINES)에서 온 결과는 요약은 아예 안 보고
-  // 제목에만 있는지로 판단한다 — 채용공고 안의 브랜드 나열, 광고 위젯 텍스트 같은 데
-  // 우연히 키워드가 섞여 들어오는 걸 막기 위해서다.
-  const matched = filtered.filter((item) =>
-    matchesTitle(keyword, item.title, SNIPPET_UNRELIABLE_ENGINES.has(item.engine) ? '' : item.snippet)
-  );
-
-  // 저장용 데이터에는 내부 처리용 engine 태그를 남기지 않는다
-  const stripEngine = (item: SourcedItem): SearchResultItem => {
-    const { engine, ...rest } = item;
-    return rest;
-  };
+  // 제목+요약에 키워드 구성 단어가 다 들어있는 것만 "이 키워드에 관한 기사"로 인정
+  const matched = filtered.filter((item) => matchesTitle(keyword, item.title, item.snippet));
 
   // 최신 기사가 위로 오도록 발행일 기준 내림차순 정렬.
   // 검색 API마다 기본 정렬 기준이 다르므로(관련도순 등) 여기서 한 번 통일한다.
   // 발행일 정보가 없는 결과는 뒤로 밀어낸다.
-  const results = matched
-    .map(stripEngine)
-    .sort((a, b) => {
-      if (!a.publishedAt && !b.publishedAt) return 0;
-      if (!a.publishedAt) return 1;
-      if (!b.publishedAt) return -1;
-      return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
-    });
+  const results = [...matched].sort((a, b) => {
+    if (!a.publishedAt && !b.publishedAt) return 0;
+    if (!a.publishedAt) return 1;
+    if (!b.publishedAt) return -1;
+    return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+  });
 
   const { newItems, allUrls } = await detectNewResults(keywordId, results);
 
@@ -127,9 +103,9 @@ export async function checkKeyword(
 
 // 여러 엔진 결과를 합칠 때 같은 기사(URL 동일)가 중복으로 들어오는 걸 제거.
 // 먼저 나온 엔진의 결과를 우선시한다(엔진 배열 순서 = 우선순위).
-function dedupeByUrl(items: SourcedItem[]): SourcedItem[] {
+function dedupeByUrl(items: SearchResultItem[]): SearchResultItem[] {
   const seen = new Set<string>();
-  const result: SourcedItem[] = [];
+  const result: SearchResultItem[] = [];
   for (const item of items) {
     if (seen.has(item.url)) continue;
     seen.add(item.url);

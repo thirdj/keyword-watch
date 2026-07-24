@@ -3,7 +3,7 @@ import { sql } from '@/lib/db';
 import { SUPPORTED_ENGINES } from '@/lib/search';
 
 const MIN_INTERVAL_MIN = 60; // 최소 1시간 — 크레딧 보호용 하한선
-const MAX_ENGINES = 3;       // 검색엔진은 최대 3개까지 동시 등록 가능
+const MAX_ENGINES = 2;       // 검색엔진은 Google RSS / Naver 두 개까지
 
 function validateEngines(searchEngines: unknown): string[] | null {
   if (!Array.isArray(searchEngines) || searchEngines.length === 0) return null;

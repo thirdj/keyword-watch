@@ -1,6 +1,6 @@
 # 키워드 감시 알림 서비스
 
-관심 키워드를 등록하면 주기적으로 검색해서, 새 결과가 있을 때만 텔레그램/이메일로 알려주는 개인용 도구.
+관심 키워드를 등록하면 주기적으로 검색해서, 새 결과가 있을 때만 이메일로 알려주는 개인용 도구.
 
 ## 시작하기
 
@@ -11,10 +11,9 @@
    ```
 3. `.env.example`을 `.env.local`로 복사하고 값 채우기
 4. Neon 콘솔에서 `schema.sql` 실행해서 테이블 생성
-5. `notification_channels` 테이블에 본인 텔레그램 chat_id / 이메일 수동 등록
+5. `notification_channels` 테이블에 본인 이메일 수동 등록
    ```sql
    INSERT INTO notification_channels (user_id, channel, target) VALUES
-     ('me', 'telegram', '본인_chat_id'),
      ('me', 'email', '본인_이메일');
    ```
 6. 로컬 실행: `npm run dev`

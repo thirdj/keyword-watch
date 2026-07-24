@@ -4,12 +4,12 @@ CREATE TABLE keywords (
   id            SERIAL PRIMARY KEY,
   user_id       TEXT NOT NULL,
   keyword       TEXT NOT NULL,
-  search_engines TEXT[] NOT NULL DEFAULT ARRAY['google_rss'], -- 'tavily' | 'naver' | 'daum' | 'google_rss' 중 1~3개
+  search_engines TEXT[] NOT NULL DEFAULT ARRAY['google_rss'], -- 'google_rss' | 'naver' 중 1~2개
   interval_min  INTEGER NOT NULL DEFAULT 480,   -- 확인 주기(분 단위), 최소 60
   is_active     BOOLEAN NOT NULL DEFAULT true,
   last_checked_at TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT search_engines_count CHECK (array_length(search_engines, 1) BETWEEN 1 AND 3)
+  CONSTRAINT search_engines_count CHECK (array_length(search_engines, 1) BETWEEN 1 AND 2)
 );
 
 CREATE TABLE check_logs (
@@ -36,7 +36,7 @@ CREATE TABLE notifications (
   id            SERIAL PRIMARY KEY,
   keyword_id    INTEGER NOT NULL REFERENCES keywords(id) ON DELETE CASCADE,
   check_log_id  INTEGER NOT NULL REFERENCES check_logs(id) ON DELETE CASCADE,
-  channel       TEXT NOT NULL, -- 'telegram' | 'email'
+  channel       TEXT NOT NULL, -- 'email'
   status        TEXT NOT NULL DEFAULT 'pending', -- 'pending' | 'sent' | 'failed'
   sent_at       TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -45,7 +45,7 @@ CREATE TABLE notifications (
 CREATE TABLE notification_channels (
   id        SERIAL PRIMARY KEY,
   user_id   TEXT NOT NULL,
-  channel   TEXT NOT NULL, -- 'telegram' | 'email'
+  channel   TEXT NOT NULL, -- 'email'
   target    TEXT NOT NULL, -- chat_id 또는 이메일 주소
   is_active BOOLEAN NOT NULL DEFAULT true
 );

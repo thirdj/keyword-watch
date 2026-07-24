@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { SUPPORTED_ENGINES } from '@/lib/search';
 
-const MAX_ENGINES = 3;
+const MAX_ENGINES = 2; // Google RSS / Naver 두 개까지
 
 function validateEngines(searchEngines: unknown): string[] | null {
   if (!Array.isArray(searchEngines) || searchEngines.length === 0) return null;

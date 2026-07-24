@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { estimateMonthlyUsage } from '@/lib/estimateUsage';
 
 export interface KeywordFormValue {
   id?: number;
@@ -13,7 +12,6 @@ export interface KeywordFormValue {
 interface Props {
   mode: 'create' | 'edit';
   initialValue?: KeywordFormValue;
-  currentCount: number; // 수정 모드에서는 본인 자신을 뺀 나머지 활성 키워드 수
   onClose: () => void;
   onSaved: () => void;
 }
@@ -26,16 +24,16 @@ const INTERVAL_OPTIONS = [
   { value: 1440, label: '1일마다' },
 ];
 
+// Tavily/Daum은 뉴스 전용 API가 아니라 일반 웹검색이라 오탐이 잦아서 제외함.
+// Google RSS / Naver News는 둘 다 진짜 뉴스 전용이라 훨씬 안정적.
 const ENGINE_OPTIONS = [
   { value: 'google_rss', label: 'Google RSS', color: '#4285f4' },
-  { value: 'daum', label: 'Daum', color: '#fee500' },
-  { value: 'tavily', label: 'Tavily', color: '#6366f1' },
   { value: 'naver', label: 'Naver', color: '#03c75a' },
 ];
 
-const MAX_ENGINES = 3;
+const MAX_ENGINES = 2;
 
-export default function KeywordModal({ mode, initialValue, currentCount, onClose, onSaved }: Props) {
+export default function KeywordModal({ mode, initialValue, onClose, onSaved }: Props) {
   const [keyword, setKeyword] = useState(initialValue?.keyword ?? '');
   const [searchEngines, setSearchEngines] = useState<string[]>(initialValue?.searchEngines ?? ['google_rss']);
   const [intervalMin, setIntervalMin] = useState(initialValue?.intervalMin ?? 480);
@@ -48,11 +46,6 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
     keywordInputRef.current?.focus();
   }, []);
 
-  // 수정 모드에서는 이 키워드 자신도 포함해서 계산 (내용이 바뀌어도 개수는 그대로니까)
-  const usage = estimateMonthlyUsage(intervalMin, currentCount + 1);
-  // 여러 엔진 중 tavily가 포함된 경우에만 무료 한도 사용량을 보여준다 (다른 엔진은 자체 한도 없음)
-  const usesTavily = searchEngines.includes('tavily');
-
   function toggleEngine(value: string) {
     setSearchEngines((prev) => {
       if (prev.includes(value)) {
@@ -60,7 +53,7 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
         if (prev.length === 1) return prev;
         return prev.filter((e) => e !== value);
       }
-      if (prev.length >= MAX_ENGINES) return prev; // 최대 3개
+      if (prev.length >= MAX_ENGINES) return prev;
       return [...prev, value];
     });
   }
@@ -92,8 +85,6 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
     }
   }
 
-  const usageBoxClass = usage.exceedsLimit ? 'usage-box danger' : usage.percentOfLimit > 70 ? 'usage-box warning' : 'usage-box';
-
   return (
     <div className="modal-overlay">
       <div className="modal-panel">
@@ -112,7 +103,7 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
         />
 
         <label className="field-label">
-          검색엔진 <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(최대 {MAX_ENGINES}개, 여러 엔진 결과를 합쳐서 확인해요)</span>
+          검색엔진 <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(여러 엔진 결과를 합쳐서 확인해요)</span>
         </label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
           {ENGINE_OPTIONS.map((opt) => {
@@ -172,13 +163,6 @@ export default function KeywordModal({ mode, initialValue, currentCount, onClose
             </option>
           ))}
         </select>
-
-        {usesTavily && (
-          <div className={usageBoxClass} style={{ marginBottom: 16 }}>
-            전체 키워드 {currentCount + 1}개 기준 월 {usage.total.toLocaleString()}건 사용 (무료 한도의{' '}
-            {usage.percentOfLimit}%){usage.exceedsLimit && ' — 한도 초과 예상'}
-          </div>
-        )}
 
         {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>{error}</p>}
 

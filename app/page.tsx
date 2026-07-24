@@ -17,9 +17,7 @@ interface Keyword {
 
 // DB엔 'google_rss' 같은 코드로 저장되지만, 화면엔 "Google RSS"처럼 사람이 읽기 좋은 이름으로 보여줌
 const ENGINE_LABELS: Record<string, string> = {
-  tavily: 'Tavily',
   naver: 'Naver',
-  daum: 'Daum',
   google_rss: 'Google RSS',
 };
 
@@ -100,9 +98,6 @@ export default function DashboardPage() {
     setEditTarget(undefined);
   }
 
-  // 수정 모드일 땐 본인 자신을 뺀 나머지 개수 기준으로 사용량을 계산해야 정확함
-  const countExcludingEditTarget = modalMode === 'edit' && editTarget ? keywords.length - 1 : keywords.length;
-
   // 새 기사가 있는 키워드를 맨 위로 올리고, 그 안에서는 원래 순서를 유지 (안정 정렬)
   const sortedKeywords = [...keywords].sort((a, b) => {
     const aNew = a.last_check_is_new === true ? 1 : 0;
@@ -154,7 +149,6 @@ export default function DashboardPage() {
         <KeywordModal
           mode={modalMode}
           initialValue={editTarget}
-          currentCount={countExcludingEditTarget}
           onClose={closeModal}
           onSaved={() => {
             closeModal();
