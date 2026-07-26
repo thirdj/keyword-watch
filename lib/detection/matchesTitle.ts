@@ -21,6 +21,12 @@ const STOPWORDS = new Set(
   ].map((w) => w.toLowerCase())
 );
 
+// 두 단어가 각각 존재하는지만 보면 "한강 작가"처럼 단어 자체가 흔하고 중의적인 경우
+// (한강=서울의 강 / 소설가, 작가=아주 흔한 일반명사) 서로 무관한 문맥에서 각자 등장해도
+// 통과해버린다. 그래서 여러 단어짜리 키워드는 "서로 이 정도 거리 안에 같이 나오는지"까지 본다 —
+// 진짜 그 키워드를 가리키는 기사라면 단어들이 대개 한 문장/한 문단 안에 뭉쳐서 나오기 때문.
+const PROXIMITY_WINDOW = 60; // 문자 수 기준 — "이 작가는" 같은 대명사 호응까지 여유있게 잡은 값
+
 export function matchesTitle(keyword: string, title: string, snippet: string = ''): boolean {
   const tokens = keyword
     .trim()
@@ -35,7 +41,36 @@ export function matchesTitle(keyword: string, title: string, snippet: string = '
   const requiredTokens = contentTokens.length > 0 ? contentTokens : tokens;
 
   const combined = normalize(`${title} ${snippet}`);
-  return requiredTokens.every((token) => combined.includes(normalize(token)));
+  const normalizedRequired = requiredTokens.map(normalize);
+
+  if (normalizedRequired.length === 1) {
+    return combined.includes(normalizedRequired[0]);
+  }
+
+  return normalizedRequired.every((t) => combined.includes(t)) && hasProximateCluster(combined, normalizedRequired);
+}
+
+// requiredTokens 중 하나(기준 단어)가 나타나는 모든 위치를 찾아, 그 주변
+// PROXIMITY_WINDOW 범위 안에 나머지 단어들도 다 있는 경우가 한 번이라도 있으면 통과시킨다.
+function hasProximateCluster(text: string, tokens: string[]): boolean {
+  const anchor = tokens[0];
+  const rest = tokens.slice(1);
+
+  let searchFrom = 0;
+  let anchorIdx = text.indexOf(anchor, searchFrom);
+
+  while (anchorIdx !== -1) {
+    const windowStart = Math.max(0, anchorIdx - PROXIMITY_WINDOW);
+    const windowEnd = anchorIdx + anchor.length + PROXIMITY_WINDOW;
+    const window = text.slice(windowStart, windowEnd);
+
+    if (rest.every((t) => window.includes(t))) return true;
+
+    searchFrom = anchorIdx + 1;
+    anchorIdx = text.indexOf(anchor, searchFrom);
+  }
+
+  return false;
 }
 
 function normalize(text: string): string {
